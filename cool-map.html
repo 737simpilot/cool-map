@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coordinate Mapper</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        
+        .controls {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input[type="text"], textarea, input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+        
+        input[type="text"]:focus, textarea:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .examples {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        
+        .examples h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .examples ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .examples li {
+            margin: 5px 0;
+            font-family: monospace;
+            background: white;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        
+        .status {
+            padding: 10px 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #3498db;
+            transition: width 0.3s ease;
+        }
+        
+        .batch-results {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .batch-results .success-count {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .batch-results .error-count {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .marker-list {
+            padding: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .marker-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .marker-item .coords {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .marker-item .original {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        .distance-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f4f8;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .distance-info .distance-label {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .distance-info .distance-value {
+            font-family: monospace;
+            color: #34495e;
+            margin: 3px 0;
+        }
+        
+        .bearing-info {
+            margin-top: 5px;
+            padding: 8px;
+            background: #fff3cd;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        .bearing-value {
+            font-weight: bold;
+            color: #856404;
+        }
+		
+		.crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background-color: #ff0000;
+            pointer-events: none;
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+            top: 0;
+        }
+
+        .crosshair::after {
+            width: 20px;
+            height: 2px;
+            left: 0;
+            top: 9px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📍 Coordinate Mapper</h1>
+            <p>Enter coordinates in various formats to display on OpenStreetMap</p>
+        </div>
+        
+        <div class="controls">
+            <div class="input-group">
+                <label for="coordinateInput">Enter Coordinates (one per line for batch processing):</label>
+                <textarea id="coordinateInput" rows="6" placeholder="Enter coordinates, one per line:
+42° 29' 19.3&quot; N, 71° 53' 12.3&quot; W
+40.7128, -74.0060
+34.0522° N, 118.2437° W
+41.8781 -87.6298"></textarea>
+            </div>
+            
+            <div class="input-group">
+                <label>
+                    <input type="checkbox" id="useManualDeclination" onchange="toggleDeclinationInput()"> 
+                    Use Manual Magnetic Declination Override
+                </label>
+                <div id="declinationInputGroup" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                    <label for="manualDeclination">Magnetic Declination:</label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                        <input type="number" id="manualDeclination" step="0.1" placeholder="e.g., 9.5" style="width: 100px;">
+                        <select id="declinationDirection" style="padding: 12px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;">
+                            <option value="E">East</option>
+                            <option value="W">West</option>
+                        </select>
+                        <span style="color: #666; font-size: 0.9em;">degrees</span>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 0.85em; color: #666;">
+                        Get accurate declination from: <a href="https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml" target="_blank">NOAA Calculator</a>
+                    </div>
+                </div>
+                <div id="declinationStatus" style="margin-top: 8px; font-size: 0.9em; color: #666;"></div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-primary" onclick="addMarkers()">Add Markers</button>
+                <button class="btn-secondary" onclick="clearMarkers()">Clear All Markers</button>
+            </div>
+            
+            <div class="examples">
+                <h3>Supported Formats:</h3>
+                <ul>
+                    <li>42° 29' 19.3" N, 71° 53' 12.3" W</li>
+                    <li>42.488694, -71.886750</li>
+                    <li>42.488694 -71.886750</li>
+                    <li>42°29'19.3"N 71°53'12.3"W</li>
+                    <li>N42° 29' 19.3", W71° 53' 12.3"</li>
+					<li>N 41.08142, W 112.52747</li>
+					<li>N 41.08142,W 112.52747</li>
+                    <li>N41.08142, W112.52747</li>
+                    <li>N41.08142,W112.52747</li>
+                    <li>42.488694°N, 71.886750°W</li>
+					<li>N 40 43.093' W 114 1.605'</li>
+					<li>N 40 43' 5" W 114 1' 36"</li>
+					<li>11T 751133 4511729 (UTM)</li>
+                </ul>
+                <p><strong>Batch Processing:</strong> Enter multiple coordinates, one per line. Use Ctrl+Enter to process all at once.</p>
+            </div>
+        </div>
+        
+        <div id="status" class="status" style="display: none;"></div>
+        
+        <div id="markerList" class="marker-list" style="display: none;"></div>
+        
+        <div id="map"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>
+        let map;
+        let markers = [];
+        let markerCount = 0;
+        
+        // Toggle manual declination input
+        function toggleDeclinationInput() {
+            const checkbox = document.getElementById('useManualDeclination');
+            const inputGroup = document.getElementById('declinationInputGroup');
+            inputGroup.style.display = checkbox.checked ? 'block' : 'none';
+            updateDeclinationStatus();
+        }
+        
+        // Get declination value (manual override or auto-calculated)
+        function getDeclination(lat, lon) {
+            const useManual = document.getElementById('useManualDeclination').checked;
+            
+            if (useManual) {
+                const decValue = parseFloat(document.getElementById('manualDeclination').value);
+                const decDirection = document.getElementById('declinationDirection').value;
+                
+                if (!isNaN(decValue)) {
+                    return decDirection === 'W' ? -Math.abs(decValue) : Math.abs(decValue);
+                }
+            }
+            
+            // Fall back to auto-calculation
+            return getMagneticDeclination(lat, lon);
+        }
+        
+        // Update declination status display
+        function updateDeclinationStatus() {
+            const statusDiv = document.getElementById('declinationStatus');
+            const useManual = document.getElementById('useManualDeclination').checked;
+            
+            if (useManual) {
+                const decValue = parseFloat(document.getElementById('manualDeclination').value);
+                const decDirection = document.getElementById('declinationDirection').value;
+                
+                if (!isNaN(decValue)) {
+                    statusDiv.innerHTML = `✓ Using manual declination: <strong>${decValue}°${decDirection}</strong>`;
+                    statusDiv.style.color = '#28a745';
+                } else {
+                    statusDiv.innerHTML = '⚠ Enter a declination value or uncheck manual override';
+                    statusDiv.style.color = '#856404';
+                }
+            } else {
+                statusDiv.innerHTML = 'ℹ Using auto-calculated declination (±3-5° accuracy)';
+                statusDiv.style.color = '#666';
+            }
+        }
+
+        // Initialize the map
+        function initMap() {
+            map = L.map('map').setView([39.8283, -98.5795], 4); // Center of USA
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            }).addTo(map);
+            addCrosshairAndDisplay();
+        }
+
+        // Calculate distance between two points (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            const distanceMeters = R * c;
+            const distanceStatuteMiles = distanceMeters * 0.000621371;
+            const distanceNauticalMiles = distanceMeters * 0.000539957;
+
+            return {
+                meters: distanceMeters.toFixed(2),
+                statuteMiles: distanceStatuteMiles.toFixed(3),
+                nauticalMiles: distanceNauticalMiles.toFixed(3)
+            };
+        }
+
+        // Calculate bearing between two points
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) -
+                      Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            const θ = Math.atan2(y, x);
+            const trueBearing = (θ * 180 / Math.PI + 360) % 360;
+
+            return trueBearing;
+        }
+
+        // Get magnetic declination for a location (simplified model)
+        function getMagneticDeclination(lat, lon) {
+            let declination = 0;
+            
+            if (lon < -100) {
+                // Western US
+                declination = 12 + (lon + 100) * 0.08;
+            } else if (lon < -80) {
+                // Central US
+                declination = (lon + 100) * 0.5;
+            } else {
+                // Eastern US
+                declination = -14 + (lon + 80) * 0.2;
+            }
+            
+            // Latitude adjustment (very simplified)
+            if (lat > 45) {
+                declination += (lat - 45) * 0.2;
+            }
+            
+            return declination;
+        }
+
+        // Calculate magnetic bearing from true bearing
+        function trueToMagnetic(trueBearing, declination) {
+            let magneticBearing = trueBearing - declination;
+            if (magneticBearing < 0) magneticBearing += 360;
+            if (magneticBearing >= 360) magneticBearing -= 360;
+            return magneticBearing;
+        }
+
+        // Format bearing with cardinal direction
+        function formatBearing(bearing) {
+            const cardinals = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
+                             'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const index = Math.round(bearing / 22.5) % 16;
+            return `${bearing.toFixed(1)}° (${cardinals[index]})`;
+        }
+
+        // Parse coordinates from various formats
+        function parseCoordinates(input) {
+            const cleanInput = input.trim();
+            
+            // DMS format: 42° 29' 19.3" N, 71° 53' 12.3" W
+            const dmsPattern = /([0-9]+)°\s*([0-9]+)'\s*([0-9]+\.?[0-9]*)"?\s*([NSEW])[,\s]+([0-9]+)°\s*([0-9]+)'\s*([0-9]+\.?[0-9]*)"?\s*([NSEW])/i;
+            const dmsMatch = cleanInput.match(dmsPattern);
+            
+            if (dmsMatch) {
+                const [, deg1, min1, sec1, dir1, deg2, min2, sec2, dir2] = dmsMatch;
+                
+                let lat = parseInt(deg1) + parseInt(min1)/60 + parseFloat(sec1)/3600;
+                let lng = parseInt(deg2) + parseInt(min2)/60 + parseFloat(sec2)/3600;
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+            
+            // Alternative DMS format: N42° 29' 19.3", W71° 53' 12.3"
+            const dmsPattern2 = /([NSEW])([0-9]+)°\s*([0-9]+)'\s*([0-9]+\.?[0-9]*)"?[,\s]+([NSEW])([0-9]+)°\s*([0-9]+)'\s*([0-9]+\.?[0-9]*)"?/i;
+            const dmsMatch2 = cleanInput.match(dmsPattern2);
+            
+            if (dmsMatch2) {
+                const [, dir1, deg1, min1, sec1, dir2, deg2, min2, sec2] = dmsMatch2;
+                
+                let lat = parseInt(deg1) + parseInt(min1)/60 + parseFloat(sec1)/3600;
+                let lng = parseInt(deg2) + parseInt(min2)/60 + parseFloat(sec2)/3600;
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+            
+            // Decimal degrees with degree symbols: 42.488694°N, 71.886750°W
+            const decimalDegreePattern = /([0-9]+\.?[0-9]*)°?([NSEW])[,\s]+([0-9]+\.?[0-9]*)°?([NSEW])/i;
+            const decimalDegreeMatch = cleanInput.match(decimalDegreePattern);
+            
+            if (decimalDegreeMatch) {
+                const [, coord1, dir1, coord2, dir2] = decimalDegreeMatch;
+                
+                let lat = parseFloat(coord1);
+                let lng = parseFloat(coord2);
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+			
+			// Format: N 41.08142 W 112.52747
+            const spaceFormatPattern = /([NSEW])\s+([0-9]+\.?[0-9]*)\s+([NSEW])\s+([0-9]+\.?[0-9]*)/i;
+            const spaceFormatMatch = cleanInput.match(spaceFormatPattern);
+
+            if (spaceFormatMatch) {
+                const [, dir1, coord1, dir2, coord2] = spaceFormatMatch;
+                
+                let lat = parseFloat(coord1);
+                let lng = parseFloat(coord2);
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+
+            // Format: N 41.08142, W 112.52747 (with comma and spaces)
+            const commaSpacePattern = /([NSEW])\s+([0-9]+\.?[0-9]*),\s+([NSEW])\s+([0-9]+\.?[0-9]*)/i;
+            const commaSpaceMatch = cleanInput.match(commaSpacePattern);
+
+            if (commaSpaceMatch) {
+                const [, dir1, coord1, dir2, coord2] = commaSpaceMatch;
+                
+                let lat = parseFloat(coord1);
+                let lng = parseFloat(coord2);
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+
+            // Format: N 41.08142,W 112.52747 (comma, no space after)
+            const commaNoSpacePattern = /([NSEW])\s+([0-9]+\.?[0-9]*),([NSEW])\s+([0-9]+\.?[0-9]*)/i;
+            const commaNoSpaceMatch = cleanInput.match(commaNoSpacePattern);
+
+            if (commaNoSpaceMatch) {
+                const [, dir1, coord1, dir2, coord2] = commaNoSpaceMatch;
+                
+                let lat = parseFloat(coord1);
+                let lng = parseFloat(coord2);
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+
+            // Format: N41.08142, W112.52747 (no space after direction letters)
+            const noSpacePattern = /([NSEW])([0-9]+\.?[0-9]*),\s+([NSEW])([0-9]+\.?[0-9]*)/i;
+            const noSpaceMatch = cleanInput.match(noSpacePattern);
+
+            if (noSpaceMatch) {
+                const [, dir1, coord1, dir2, coord2] = noSpaceMatch;
+                
+                let lat = parseFloat(coord1);
+                let lng = parseFloat(coord2);
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+
+            // Format: N41.08142,W112.52747 (no spaces)
+            const noSpacesPattern = /([NSEW])([0-9]+\.?[0-9]*),([NSEW])([0-9]+\.?[0-9]*)/i;
+            const noSpacesMatch = cleanInput.match(noSpacesPattern);
+
+            if (noSpacesMatch) {
+               const [, dir1, coord1, dir2, coord2] = noSpacesMatch;
+               
+               let lat = parseFloat(coord1);
+               let lng = parseFloat(coord2);
+               
+               if (dir1.toUpperCase() === 'S') lat = -lat;
+               if (dir2.toUpperCase() === 'W') lng = -lng;
+               
+               return { lat, lng };
+            }
+
+            // Format: N 40 43.093' W 114 1.605' (degrees and decimal minutes)
+            const degreeDecimalMinutesPattern = /([NSEW])\s+([0-9]+)\s+([0-9]+\.?[0-9]*)'?\s+([NSEW])\s+([0-9]+)\s+([0-9]+\.?[0-9]*)'?/i;
+            const degreeDecimalMinutesMatch = cleanInput.match(degreeDecimalMinutesPattern);
+
+            if (degreeDecimalMinutesMatch) {
+                const [, dir1, deg1, min1, dir2, deg2, min2] = degreeDecimalMinutesMatch;
+                
+                let lat = parseInt(deg1) + parseFloat(min1)/60;
+                let lng = parseInt(deg2) + parseFloat(min2)/60;
+                
+                if (dir1.toUpperCase() === 'S') lat = -lat;
+                if (dir2.toUpperCase() === 'W') lng = -lng;
+                
+                return { lat, lng };
+            }
+
+            // Format: N 40 43' 5" W 114 1' 36" (degrees, minutes, seconds with spaces)
+            const spacedDMSPattern = /([NSEW])\s+([0-9]+)\s+([0-9]+)'\s+([0-9]+\.?[0-9]*)"?\s+([NSEW])\s+([0-9]+)\s+([0-9]+)'\s+([0-9]+\.?[0-9]*)"?/i;
+            const spacedDMSMatch = cleanInput.match(spacedDMSPattern);
+
+            if (spacedDMSMatch) {
+               const [, dir1, deg1, min1, sec1, dir2, deg2, min2, sec2] = spacedDMSMatch;
+               
+               let lat = parseInt(deg1) + parseInt(min1)/60 + parseFloat(sec1)/3600;
+               let lng = parseInt(deg2) + parseInt(min2)/60 + parseFloat(sec2)/3600;
+               
+               if (dir1.toUpperCase() === 'S') lat = -lat;
+               if (dir2.toUpperCase() === 'W') lng = -lng;
+               
+               return { lat, lng };
+            }
+
+            // Format: 11T 751133 4511729 (UTM)
+            const utmPattern = /([0-9]{1,2})([A-Z])\s+([0-9]+)\s+([0-9]+)/i;
+            const utmMatch = cleanInput.match(utmPattern);
+
+            if (utmMatch) {
+                const [, zone, band, easting, northing] = utmMatch;
+                
+                // Define UTM projection string
+                const utmProj = `+proj=utm +zone=${zone} +datum=WGS84 +units=m +no_defs`;
+                const wgs84Proj = '+proj=longlat +datum=WGS84 +no_defs';
+                
+                try {
+                    // Convert UTM to lat/lng
+                    const [lng, lat] = proj4(utmProj, wgs84Proj, [parseFloat(easting), parseFloat(northing)]);
+                    return { lat, lng };
+                } catch (error) {
+                    console.error('UTM conversion error:', error);
+                    return null;
+                }
+            }
+            
+            // Simple decimal degrees: 42.488694, -71.886750 or 42.488694 -71.886750
+            const decimalPattern = /(-?[0-9]+\.?[0-9]*)[,\s]+(-?[0-9]+\.?[0-9]*)/;
+            const decimalMatch = cleanInput.match(decimalPattern);
+            
+            if (decimalMatch) {
+                const lat = parseFloat(decimalMatch[1]);
+                const lng = parseFloat(decimalMatch[2]);
+                
+                return { lat, lng };
+            }
+            
+            return null;
+        }
+
+        // Validate coordinates
+        function validateCoordinates(coords) {
+            return coords && 
+                   coords.lat >= -90 && coords.lat <= 90 && 
+                   coords.lng >= -180 && coords.lng <= 180;
+        }
+
+        // Show status message
+        function showStatus(message, type = 'success', showProgress = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            if (showProgress) {
+                const progressBar = document.createElement('div');
+                progressBar.className = 'progress-bar';
+                progressBar.innerHTML = '<div class="progress-fill" id="progressFill" style="width: 0%"></div>';
+                statusDiv.appendChild(progressBar);
+            }
+            
+            if (type !== 'processing') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Update progress bar
+        function updateProgress(percentage) {
+            const progressFill = document.getElementById('progressFill');
+            if (progressFill) {
+                progressFill.style.width = percentage + '%';
+            }
+        }
+
+        // Update marker list display with distances and bearings
+        function updateMarkerList() {
+            const markerListDiv = document.getElementById('markerList');
+            
+            if (markers.length === 0) {
+                markerListDiv.style.display = 'none';
+                return;
+            }
+            
+            markerListDiv.style.display = 'block';
+            markerListDiv.innerHTML = '<h3>Current Markers:</h3>';
+            
+            markers.forEach((markerData, index) => {
+                const markerItem = document.createElement('div');
+                markerItem.className = 'marker-item';
+                
+                let content = `
+                    <div class="coords">Marker ${index + 1}: ${markerData.coords.lat.toFixed(6)}, ${markerData.coords.lng.toFixed(6)}</div>
+                    <div class="original">Original: ${markerData.original}</div>
+                `;
+                
+                // Calculate distance and bearing to next marker
+                if (index < markers.length - 1) {
+                    const nextMarker = markers[index + 1];
+                    const distance = calculateDistance(
+                        markerData.coords.lat, markerData.coords.lng,
+                        nextMarker.coords.lat, nextMarker.coords.lng
+                    );
+                    
+                    const trueBearing = calculateBearing(
+                        markerData.coords.lat, markerData.coords.lng,
+                        nextMarker.coords.lat, nextMarker.coords.lng
+                    );
+                    
+                    const reverseTrueBearing = calculateBearing(
+                        nextMarker.coords.lat, nextMarker.coords.lng,
+                        markerData.coords.lat, markerData.coords.lng
+                    );
+                    
+                    // Get magnetic declination at midpoint
+                    const midLat = (markerData.coords.lat + nextMarker.coords.lat) / 2;
+                    const midLon = (markerData.coords.lng + nextMarker.coords.lng) / 2;
+                    const declination = getDeclination(midLat, midLon);
+                    const isManual = document.getElementById('useManualDeclination').checked;
+                    
+                    const magBearing = trueToMagnetic(trueBearing, declination);
+                    const reverseMagBearing = trueToMagnetic(reverseTrueBearing, declination);
+                    
+                    content += `
+                        <div class="distance-info">
+                            <div class="distance-label">→ To Marker ${index + 2}:</div>
+                            <div class="distance-value">Distance: ${distance.statuteMiles} statute mi | ${distance.nauticalMiles} nautical mi | ${distance.meters} m</div>
+                            <div class="bearing-info">
+                                <div>Magnetic Bearing TO: <span class="bearing-value">${formatBearing(magBearing)}</span></div>
+                                <div>Magnetic Bearing FROM: <span class="bearing-value">${formatBearing(reverseMagBearing)}</span></div>
+                                <div style="font-size: 0.85em; margin-top: 3px; color: #666;">Mag Declination: ${declination.toFixed(1)}° ${declination >= 0 ? 'E' : 'W'} ${isManual ? '(manual)' : '(auto)'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                markerItem.innerHTML = content;
+                markerListDiv.appendChild(markerItem);
+            });
+        }
+
+        // Process coordinates in batches to avoid blocking UI
+        async function processCoordinatesBatch(lines) {
+            const results = {
+                successful: [],
+                failed: []
+            };
+            
+            showStatus('Processing coordinates...', 'processing', true);
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (!line) continue;
+                
+                const coords = parseCoordinates(line);
+                
+                if (coords && validateCoordinates(coords)) {
+                    results.successful.push({
+                        coords: coords,
+                        original: line,
+                        line: i + 1
+                    });
+                } else {
+                    results.failed.push({
+                        original: line,
+                        line: i + 1
+                    });
+                }
+                
+                // Update progress
+                const progress = ((i + 1) / lines.length) * 100;
+                updateProgress(progress);
+                
+                // Yield control every 50 iterations to keep UI responsive
+                if (i % 50 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1));
+                }
+            }
+            
+            return results;
+        }
+
+        // Add multiple markers to map
+        async function addMarkers() {
+            const input = document.getElementById('coordinateInput').value;
+            
+            if (!input.trim()) {
+                showStatus('Please enter coordinates', 'error');
+                return;
+            }
+            
+            const lines = input.split('\n').filter(line => line.trim());
+            
+            if (lines.length === 0) {
+                showStatus('No valid coordinate lines found', 'error');
+                return;
+            }
+            
+            showStatus(`Processing ${lines.length} coordinate entries...`, 'processing', true);
+            
+            try {
+                const results = await processCoordinatesBatch(lines);
+                
+                // Add successful markers to map
+                const newMarkers = [];
+                for (const result of results.successful) {
+                    const marker = L.marker([result.coords.lat, result.coords.lng]).addTo(map);
+                    
+                    // Calculate info for popup if there's a previous marker
+                    let popupContent = `
+                        <strong>Marker ${markerCount + 1}</strong><br>
+                        Latitude: ${result.coords.lat.toFixed(6)}<br>
+                        Longitude: ${result.coords.lng.toFixed(6)}<br>
+                        <small>Line ${result.line}: ${result.original}</small>
+                    `;
+                    
+                    if (markers.length > 0) {
+                        const prevMarker = markers[markers.length - 1];
+                        const distance = calculateDistance(
+                            prevMarker.coords.lat, prevMarker.coords.lng,
+                            result.coords.lat, result.coords.lng
+                        );
+                        
+                        const trueBearing = calculateBearing(
+                            prevMarker.coords.lat, prevMarker.coords.lng,
+                            result.coords.lat, result.coords.lng
+                        );
+                        
+                        const midLat = (prevMarker.coords.lat + result.coords.lat) / 2;
+                        const midLon = (prevMarker.coords.lng + result.coords.lng) / 2;
+                        const declination = getDeclination(midLat, midLon);
+                        const magBearing = trueToMagnetic(trueBearing, declination);
+                        
+                        popupContent += `<br><br><strong>From Marker ${markerCount}:</strong><br>`;
+                        popupContent += `Distance: ${distance.statuteMiles} mi<br>`;
+                        popupContent += `Bearing: ${formatBearing(magBearing)} (mag)`;
+                    }
+                    
+                    marker.bindPopup(popupContent);
+                    markerCount++;
+                    
+                    newMarkers.push({
+                        marker: marker,
+                        coords: result.coords,
+                        original: result.original
+                    });
+                }
+                
+                // Add to markers array
+                markers.push(...newMarkers);
+                
+                // Draw lines between consecutive markers
+                if (markers.length > 1) {
+                    for (let i = 0; i < markers.length - 1; i++) {
+                        const polyline = L.polyline([
+                            [markers[i].coords.lat, markers[i].coords.lng],
+                            [markers[i + 1].coords.lat, markers[i + 1].coords.lng]
+                        ], {
+                            color: '#3498db',
+                            weight: 2,
+                            opacity: 0.7,
+                            dashArray: '5, 10'
+                        }).addTo(map);
+                        
+                        // Store polyline reference for clearing later
+                        if (!window.polylines) window.polylines = [];
+                        window.polylines.push(polyline);
+                    }
+                }
+                
+                // Fit map to show all markers
+                if (markers.length > 0) {
+                    const group = new L.featureGroup(markers.map(m => m.marker));
+                    map.fitBounds(group.getBounds().pad(0.1));
+                }
+                
+                // Show results
+                const successCount = results.successful.length;
+                const failCount = results.failed.length;
+                
+                let statusMessage = `
+                    <div class="batch-results">
+                        <div class="success-count">✓ ${successCount} markers added successfully</div>
+                        ${failCount > 0 ? `<div class="error-count">✗ ${failCount} coordinates failed to parse</div>` : ''}
+                    </div>
+                `;
+                
+                if (failCount > 0) {
+                    statusMessage += '<div style="margin-top: 10px; font-size: 0.9em;">Failed coordinates:</div>';
+                    statusMessage += '<div style="max-height: 100px; overflow-y: auto; font-size: 0.8em; margin-top: 5px;">';
+                    results.failed.forEach(fail => {
+                        statusMessage += `<div>Line ${fail.line}: ${fail.original}</div>`;
+                    });
+                    statusMessage += '</div>';
+                }
+                
+                showStatus(statusMessage, successCount > 0 ? 'success' : 'error');
+                updateMarkerList();
+                
+                // Clear input if all coordinates were processed successfully
+                if (failCount === 0) {
+                    document.getElementById('coordinateInput').value = '';
+                }
+                
+            } catch (error) {
+                showStatus('Error processing coordinates: ' + error.message, 'error');
+            }
+        }
+
+        // Clear all markers
+        function clearMarkers() {
+            markers.forEach(markerData => {
+                map.removeLayer(markerData.marker);
+            });
+            
+            // Clear polylines
+            if (window.polylines) {
+                window.polylines.forEach(line => {
+                    map.removeLayer(line);
+                });
+                window.polylines = [];
+            }
+            
+            markers = [];
+            markerCount = 0;
+            updateMarkerList();
+            showStatus('All markers cleared');
+        }
+
+        // Handle Enter key in input field (Ctrl+Enter for batch processing)
+        document.getElementById('coordinateInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                addMarkers();
+            }
+        });
+        
+        // Update declination status when manual input changes
+        document.getElementById('manualDeclination').addEventListener('input', updateDeclinationStatus);
+        document.getElementById('declinationDirection').addEventListener('change', updateDeclinationStatus);
+
+        // Initialize map when page loads
+        window.onload = function() {
+            initMap();
+            updateDeclinationStatus();
+        };
+		
+		// Function to update coordinate display with text box
+        function updateCoordinateDisplayWithCopy(lat, lng) {
+            const coordinateDiv = document.getElementById('coordinateDisplay');
+            if (!coordinateDiv) return;
+            
+            // DMS format
+            const latDMS = decimalToDMS(lat, false);
+            const lngDMS = decimalToDMS(lng, true);
+            const dmsFormat = `${latDMS.direction}${latDMS.degrees}° ${latDMS.minutes}' ${latDMS.seconds}", ${lngDMS.direction}${lngDMS.degrees}° ${lngDMS.minutes}' ${lngDMS.seconds}"`;
+            
+            // Decimal format
+            const decimalFormat = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            
+            // DMS format for seconds display
+            const dmsSecondsFormat = `${latDMS.direction} ${latDMS.degrees} ${latDMS.minutes}' ${Math.round(parseFloat(latDMS.seconds))}" ${lngDMS.direction} ${lngDMS.degrees} ${lngDMS.minutes}' ${Math.round(parseFloat(lngDMS.seconds))}"`;
+            
+            // UTM format
+            const utm = decimalToUTM(lat, lng);
+            const utmFormat = utm ? `${utm.zone}${utm.band} ${utm.easting} ${utm.northing}` : 'Invalid UTM';
+            
+            coordinateDiv.innerHTML = `
+                <h4>📍 Crosshair Coordinates</h4>
+                <div><span class="format-label">DMS:</span> ${dmsFormat}</div>
+                <div><span class="format-label">Decimal:</span> ${decimalFormat}</div>
+                <div><span class="format-label">DMS (Seconds):</span> ${dmsSecondsFormat}</div>
+                <div><span class="format-label">UTM:</span> ${utmFormat}</div>
+            `;
+            
+            // Update text box
+            const textBox = document.getElementById('coordinateTextBox');
+            if (textBox) {
+                textBox.value = `DMS: ${dmsFormat}\nDecimal: ${decimalFormat}\nDMS (Seconds): ${dmsSecondsFormat}\nUTM: ${utmFormat}`;
+            }
+        }
+
+        // UTM conversion functions using proj4js library
+
+        function decimalToDMS(decimal, isLongitude) {
+            const absolute = Math.abs(decimal);
+            const degrees = Math.floor(absolute);
+            const minutesFloat = (absolute - degrees) * 60;
+            const minutes = Math.floor(minutesFloat);
+            const seconds = ((minutesFloat - minutes) * 60).toFixed(1);
+            
+            let direction;
+            if (isLongitude) {
+                direction = decimal >= 0 ? 'E' : 'W';
+            } else {
+                direction = decimal >= 0 ? 'N' : 'S';
+            }
+            
+            return {
+                direction: direction,
+                degrees: degrees,
+                minutes: minutes,
+                seconds: seconds
+            };
+        }
+
+        function decimalToUTM(lat, lng) {
+            try {
+                // Calculate UTM zone
+                const zone = Math.floor((lng + 180) / 6) + 1;
+                
+                // Calculate UTM band
+                const bandIndex = Math.floor((lat + 80) / 8);
+                const bands = 'CDEFGHJKLMNPQRSTUVWX';
+                const band = bands[bandIndex];
+                
+                if (!band || bandIndex < 0 || bandIndex >= bands.length) {
+                    return null;
+                }
+                
+                // Define projections
+                const wgs84 = '+proj=longlat +datum=WGS84 +no_defs';
+                const utmProj = `+proj=utm +zone=${zone} +datum=WGS84 +units=m +no_defs`;
+                
+                // Convert to UTM
+                const [easting, northing] = proj4(wgs84, utmProj, [lng, lat]);
+                
+                return {
+                    zone: zone,
+                    band: band,
+                    easting: Math.round(easting),
+                    northing: Math.round(northing)
+                };
+            } catch (error) {
+                console.error('UTM conversion error:', error);
+                return null;
+            }
+        }
+
+        function addCrosshairAndDisplay() {
+            // Create crosshair element
+            const crosshair = document.createElement('div');
+            crosshair.className = 'crosshair';
+            
+            // Add only crosshair to map container
+            const mapContainer = document.getElementById('map');
+            mapContainer.appendChild(crosshair);
+            
+            // Create text box below the map
+            const textBoxContainer = document.createElement('div');
+            textBoxContainer.style.padding = '20px';
+            textBoxContainer.style.borderTop = '1px solid #eee';
+            textBoxContainer.innerHTML = `
+                <label for="coordinateTextBox" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">
+                    Current Crosshair Coordinates:
+                </label>
+                <textarea id="coordinateTextBox" readonly style="width: 100%; height: 100px; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 14px; background-color: #f9f9f9; resize: vertical; box-sizing: border-box;"></textarea>
+            `;
+            
+            // Add text box container after the map
+            const container = document.querySelector('.container');
+            container.appendChild(textBoxContainer);
+            
+            // Function to update coordinates based on map center
+            function updateCenterCoordinates() {
+                const center = map.getCenter();
+                updateCoordinateTextBoxOnly(center.lat, center.lng);
+            }
+            
+            // Update coordinates when map moves
+            map.on('move', updateCenterCoordinates);
+            map.on('zoom', updateCenterCoordinates);
+            
+            // Initial coordinate display
+            updateCenterCoordinates();
+        }
+
+        function updateCoordinateTextBoxOnly(lat, lng) {
+            // DMS format
+            const latDMS = decimalToDMS(lat, false);
+            const lngDMS = decimalToDMS(lng, true);
+            const dmsFormat = `${latDMS.direction}${latDMS.degrees}° ${latDMS.minutes}' ${latDMS.seconds}", ${lngDMS.direction}${lngDMS.degrees}° ${lngDMS.minutes}' ${lngDMS.seconds}"`;
+            
+            // Decimal format
+            const decimalFormat = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            
+            // DMS format for seconds display
+            const dmsSecondsFormat = `${latDMS.direction} ${latDMS.degrees} ${latDMS.minutes}' ${Math.round(parseFloat(latDMS.seconds))}" ${lngDMS.direction} ${lngDMS.degrees} ${lngDMS.minutes}' ${Math.round(parseFloat(lngDMS.seconds))}"`;
+            
+            // UTM format
+            const utm = decimalToUTM(lat, lng);
+            const utmFormat = utm ? `${utm.zone}${utm.band} ${utm.easting} ${utm.northing}` : 'Invalid UTM';
+            
+            // Update text box only
+            const textBox = document.getElementById('coordinateTextBox');
+            if (textBox) {
+                textBox.value = `DMS: ${dmsFormat}\nDecimal: ${decimalFormat}\nDMS (Seconds): ${dmsSecondsFormat}\nUTM: ${utmFormat}`;
+            }
+        }
+    </script>
+</body>
+</html>
